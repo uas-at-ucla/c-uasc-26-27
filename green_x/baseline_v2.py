@@ -36,12 +36,13 @@ def diagonal_intersection(corners):
     return p + t * (r - p)
 
 
-def verify_green_x(image, corners, threshold=DEFAULT_GREEN_THRESHOLD):
+def verify_green_x(image, corners, threshold=DEFAULT_GREEN_THRESHOLD, verbose=False):
     """Verify green evidence along both target diagonals.
 
     Returns (accepted, score, warped_image, evidence_mask).
     Score is a heuristic, not a calibrated probability.
     """
+
     size = 128
     src = order_corners(corners).astype(np.float32)
     dst = np.array([
@@ -117,13 +118,14 @@ def verify_green_x(image, corners, threshold=DEFAULT_GREEN_THRESHOLD):
     )
 
     # Diagnostic output
-    print(
-    f"Diagonal 1: {score1:.4f} | "
-    f"Diagonal 2: {score2:.4f} | "
-    f"Weak: {weak:.4f} | "
-    f"Combined: {score:.4f} | "
-    f"Accepted: {accepted}"
-    )
+    if verbose:
+        print(
+        f"Diagonal 1: {score1:.4f} | "
+        f"Diagonal 2: {score2:.4f} | "
+        f"Weak: {weak:.4f} | "
+        f"Combined: {score:.4f} | "
+        f"Accepted: {accepted}"
+        )
     debug_mask = np.clip(evidence * 255, 0, 255).astype(
         np.uint8
     )
@@ -297,6 +299,7 @@ def main():
 
     if img is None:
         raise FileNotFoundError(args.image)
+    original = img.copy()
 
     center, mask, corners = detect(
         img,
@@ -328,7 +331,7 @@ def main():
 
         if args.verify_green:
             _, score, warped, evidence = verify_green_x(
-                img, corners, args.green_threshold
+                original, corners, args.green_threshold, verbose=True
             )
 
             print(f"Green X score: {score:.4f}")
