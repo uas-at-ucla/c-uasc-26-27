@@ -35,7 +35,7 @@ The format cannot yet represent target-absent frames.
 
 `baseline_v2.py` finds a bright white quadrilateral, uses its diagonal
 intersection as the center, and optionally verifies the green X in a
-perspective-warped crop. `evaluate.py` uses green threshold `0.030`.
+perspective-warped crop. Green threshold: `DEFAULT_GREEN_THRESHOLD = 0.030` in baseline_v2.py, used by the command line and `evaluate.py`
 
 ```bash
 python green_x/check_dataset.py <dataset_dir>
@@ -75,7 +75,5 @@ Center error is measured only on detected frames.
 - Synthetic 256×256 frames only; results won't transfer directly to the
   high-resolution wide camera.
 - No target-absent frames yet, so false positives are not measured.
-- `baseline_v2.py` command-line default `--green-threshold` is `0.035`, while
-  `evaluate.py` uses `0.030`.
 - `verify_green_x` prints for every candidate, which makes logs noisy.
 - `evaluate.py` writes its CSV next to the dataset folder.

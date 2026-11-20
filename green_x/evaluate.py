@@ -12,7 +12,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from baseline_v2 import detect
+from baseline_v2 import detect, DEFAULT_GREEN_THRESHOLD
 
 
 def evaluate(dataset):
@@ -53,7 +53,7 @@ def evaluate(dataset):
         center, mask, corners = detect(
             image,
             verify_green=True,
-            green_threshold=0.030
+            green_threshold=DEFAULT_GREEN_THRESHOLD
         )
 
         if center is None:

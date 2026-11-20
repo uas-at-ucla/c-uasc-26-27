@@ -12,6 +12,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+DEFAULT_GREEN_THRESHOLD = 0.030
+
 
 def order_corners(corners):
     """Return corners in cyclic order around the center."""
@@ -34,7 +36,7 @@ def diagonal_intersection(corners):
     return p + t * (r - p)
 
 
-def verify_green_x(image, corners, threshold=0.030):
+def verify_green_x(image, corners, threshold=DEFAULT_GREEN_THRESHOLD):
     """Verify green evidence along both target diagonals.
 
     Returns (accepted, score, warped_image, evidence_mask).
@@ -129,7 +131,7 @@ def verify_green_x(image, corners, threshold=0.030):
     return accepted, score, warped, debug_mask
 
 
-def detect(image, verify_green=False, green_threshold=0.030):
+def detect(image, verify_green=False, green_threshold=DEFAULT_GREEN_THRESHOLD):
     H, W = image.shape[:2]
     image_area = H * W
 
@@ -286,7 +288,7 @@ def main():
     parser.add_argument(
         "--green-threshold",
         type=float,
-        default=0.035
+        default=DEFAULT_GREEN_THRESHOLD
     )
 
     args = parser.parse_args()
