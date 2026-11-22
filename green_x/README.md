@@ -75,5 +75,3 @@ Center error is measured only on detected frames.
 - Synthetic 256×256 frames only; results won't transfer directly to the
   high-resolution wide camera.
 - No target-absent frames yet, so false positives are not measured.
-- `verify_green_x` prints for every candidate, which makes logs noisy.
-- `evaluate.py` writes its CSV next to the dataset folder.

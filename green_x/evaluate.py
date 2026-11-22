@@ -15,7 +15,7 @@ import numpy as np
 from baseline_v2 import detect, DEFAULT_GREEN_THRESHOLD
 
 
-def evaluate(dataset):
+def evaluate(dataset, output_path = None):
     dataset = Path(dataset)
     image_dir = dataset / "images"
     label_path = dataset / "labels.csv"
@@ -96,7 +96,10 @@ def evaluate(dataset):
         )
 
     # Save results for further analysis.
-    output_path = dataset.parent / "evaluation_results.csv"
+    if output_path is None:
+        output_path = dataset.parent / "evaluation_results.csv"
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(
@@ -167,6 +170,12 @@ if __name__ == "__main__":
         default="output/dataset",
         help="Path to Blender-generated dataset"
     )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="CSV path for per-image results (default: next to the dataset folder)"
+    )
+
 
     args = parser.parse_args()
-    evaluate(args.dataset)
+    evaluate(args.dataset, args.out)
