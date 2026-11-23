@@ -32,14 +32,17 @@ def clip_poly(poly, axis, value, keep_greater):
     return result
 
 
-def shapes(span_m=5.0, size_mode='diagonal', stroke_width_m=0.10):
+def shapes(span_m=5.0, size_mode='diagonal', stroke_width_m=0.10, pattern='x'):
     side = board_side(span_m, size_mode)
     if not 0 < stroke_width_m < side * 0.3:
         raise ValueError('stroke_width_m must be positive and less than 30% of side')
     h = side / 2
     square = [(-h,-h), (h,-h), (h,h), (-h,h)]
     strokes = []
-    for theta in (math.pi/4, -math.pi/4):
+    angles = {'x': (math.pi/4, -math.pi/4), 'plus': (0.0, math.pi/2)}
+    if pattern not in angles:
+        raise ValueError("pattern must be 'x' or 'plus'")
+    for theta in angles[pattern]:
         ux, uy = math.cos(theta), math.sin(theta)
         nx, ny = -uy, ux
         half_length = side * 1.2
