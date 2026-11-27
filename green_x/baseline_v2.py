@@ -63,9 +63,10 @@ def verify_green_x(image, corners, threshold=DEFAULT_GREEN_THRESHOLD, verbose=Fa
     lab = cv2.cvtColor(warped, cv2.COLOR_BGR2LAB)
     a = lab[:, :, 1].astype(np.float32)
 
-    # Green dominance in BGR; tolerate relatively faint strokes.
+    # Green dominance in BGR: green must exceed both red and blue, so
+    # orange strokes (high green, even higher red) do not count.
     b, g, r = cv2.split(warped.astype(np.float32))
-    dominance = g - 0.5 * (r + b)
+    dominance = g - np.maximum(r, b)
 
     # More sensitive to pale/desaturated green.
     lab_green = np.clip((128.0 - a) / 10.0, 0, 1)

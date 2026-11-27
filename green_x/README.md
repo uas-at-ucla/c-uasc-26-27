@@ -135,18 +135,53 @@ Center error is measured only on detected frames.
 | … `absent` (clutter only) | 0/124 | 26/124 (21.0%) |
 | Mean time per frame | 24.5 ms | 24.3 ms |
 
-Findings:
+Findings (original detector):
 
-- **Misses dominate and depend on altitude.** No targets are found below 15 m.
-  Working hypothesis (not yet verified): the background blur (σ = 18 px) was
-  tuned for ~40 px targets, while low-altitude boards are hundreds of pixels wide.
-- **Green verification works on shape look-alikes:** it removes all `plus`,
-  `plain` and clutter false positives, but 17% of non-green X boards still pass.
-- The package on the center does not reduce recall.
+- Misses dominated and depended on altitude: no targets were found below 15 m.
+- Green verification removed all `plus`, `plain` and clutter false positives,
+  but 17% of non-green X boards still passed.
+- The package on the center did not reduce recall.
+
+### Detector updates (2026-11-27), same test set, green verification on
+
+1. **Multiscale search:** if nothing is found at full resolution, `detect()`
+   retries on ½, ¼ and ⅛ size copies (never narrower than 256 px) and maps the
+   corners back to original pixels. Cause, confirmed on drawn targets: on large
+   boards, the thick strokes split the white outline, and the σ = 18 px
+   background blur is too small. `evaluate.py --single-scale` reproduces the
+   original detector exactly.
+2. **Stricter green dominance:** `g − max(r, b)` instead of `g − ½(r + b)`, so
+   orange strokes no longer count as green.
+
+| Metric | Original | + Multiscale | + Green dominance fix |
+|---|---|---|---|
+| Hits, all targets | 273/492 (55.5%) | 460/492 (93.5%) | 460/492 (93.5%) |
+| Hits at 8–15 m | 0/126 | 103/126 (81.7%) | 103/126 (81.7%) |
+| Hits at 15–25 m | 70/148 (47.3%) | 144/148 (97.3%) | 144/148 (97.3%) |
+| Hits at 25–40 m | 203/218 (93.1%) | 213/218 (97.7%) | 213/218 (97.7%) |
+| Center error mean / median / 90th pct | 2.25 / 1.70 / 4.07 px | 3.89 / 2.83 / 7.59 px | 3.89 / 2.83 / 7.59 px |
+| Center error at 8–15 m (mean) | n/a | 7.56 px | 7.56 px |
+| False positives, all negatives | 25/508 (4.9%) | 34/508 (6.7%) | 13/508 (2.6%) |
+| … `other_color` | 25/144 | 34/144 | 13/144 (orange 7, red 3, blue 3) |
+| … `plus`, `plain`, `absent` | 0 | 0 | 0 |
+| Mean time per frame | 24.5 ms | 41.2 ms | 40.5 ms |
+
+- `blender_test_200` (256×256): multiscale leaves it unchanged; the green
+  dominance fix loses one occluded target (55/57 → 54/57), likely because the
+  sub-pixel green strokes at that resolution score lower under the stricter rule.
+- Low-altitude center error is larger because those targets are found on
+  downscaled copies; it is still about 1% of the board width.
 
 ## Known limitations and follow-ups
 
-- Synthetic data only; ground is flat-colored with no texture or shadows from
-  objects. Real-image results are on hold.
-- Low-altitude misses (see above).
-- `other_color` false positives need diagnosis.
+- Synthetic data only; flat-colored ground with no texture. Real-image results
+  are on hold.
+- 13 non-green X boards still pass verification (orange 7, red 3, blue 3);
+  black never does. Working hypothesis: JPEG compression leaves faint greenish
+  fringes beside saturated strokes. Likely fix: check the color of the stroke
+  pixels themselves, not just green evidence along the diagonals.
+- Yellow strokes pass verification on drawn test boards (the generator does not
+  render yellow).
+- Low-altitude center accuracy: refine the corners at full resolution after a
+  downscaled detection.
+- Multiscale adds time when nothing is found (up to four passes).
