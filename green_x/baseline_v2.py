@@ -14,6 +14,10 @@ import numpy as np
 
 DEFAULT_GREEN_THRESHOLD = 0.030
 
+# Downscale factors tried in order; copies narrower than MIN_WORK_WIDTH are skipped.
+MULTISCALE_FACTORS = (1.0, 0.5, 0.25, 0.125)
+MIN_WORK_WIDTH = 256
+
 
 def order_corners(corners):
     """Return corners in cyclic order around the center."""
@@ -133,7 +137,57 @@ def verify_green_x(image, corners, threshold=DEFAULT_GREEN_THRESHOLD, verbose=Fa
     return accepted, score, warped, debug_mask
 
 
-def detect(image, verify_green=False, green_threshold=DEFAULT_GREEN_THRESHOLD):
+def to_original(corners, sx, sy):
+    """Map corners from a resized copy back to original pixel coordinates."""
+    return np.column_stack((
+        (corners[:, 0] + 0.5) / sx - 0.5,
+        (corners[:, 1] + 0.5) / sy - 0.5,
+    )).astype(np.float32)
+
+
+def detect(image, verify_green=False, green_threshold=DEFAULT_GREEN_THRESHOLD,
+           multiscale=True):
+    """Find the target; returns (center, mask, corners) in original pixels.
+
+    Tries full resolution first, then smaller copies until a target is found.
+    The background blur and morphology suit boards roughly 40-200 px across,
+    so large boards (low altitude) are found on a smaller copy. The returned
+    mask is always the full-resolution one.
+    """
+    H, W = image.shape[:2]
+    full_mask = None
+
+    for factor in (MULTISCALE_FACTORS if multiscale else (1.0,)):
+        if factor == 1.0:
+            work = image
+        else:
+            size = (round(W * factor), round(H * factor))
+            if size[0] < MIN_WORK_WIDTH:
+                break
+            work = cv2.resize(image, size, interpolation=cv2.INTER_AREA)
+
+        center, mask, corners = detect_single_scale(
+            work, verify_green, green_threshold,
+            sx=work.shape[1] / W, sy=work.shape[0] / H, original=image
+        )
+        if full_mask is None:
+            full_mask = mask
+        if center is not None:
+            return center, full_mask, corners
+
+    return None, full_mask, None
+
+
+def detect_single_scale(image, verify_green=False,
+                        green_threshold=DEFAULT_GREEN_THRESHOLD,
+                        sx=1.0, sy=1.0, original=None):
+    """Detect on one image; corners are mapped back by (sx, sy).
+
+    `image` may be a resized copy of `original`. Green verification always
+    runs on `original` so the thin strokes keep full resolution.
+    """
+    if original is None:
+        original = image
     H, W = image.shape[:2]
     image_area = H * W
 
@@ -218,7 +272,8 @@ def detect(image, verify_green=False, green_threshold=DEFAULT_GREEN_THRESHOLD):
         if rectangularity < 0.60:
             continue
 
-        center = diagonal_intersection(corners)
+        original_corners = to_original(corners, sx, sy)
+        center = diagonal_intersection(original_corners)
 
         if center is None:
             continue
@@ -253,7 +308,7 @@ def detect(image, verify_green=False, green_threshold=DEFAULT_GREEN_THRESHOLD):
 
         if verify_green:
             accepted, green_score, _, _ = verify_green_x(
-                image, corners, green_threshold
+                original, original_corners, green_threshold
             )
 
             if not accepted:
@@ -264,7 +319,7 @@ def detect(image, verify_green=False, green_threshold=DEFAULT_GREEN_THRESHOLD):
             0.5 * green_score if verify_green else 0
         )
 
-        candidates.append((score, center, corners))
+        candidates.append((score, center, original_corners))
 
     if not candidates:
         return None, mask, None

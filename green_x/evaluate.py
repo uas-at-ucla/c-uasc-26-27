@@ -3,6 +3,7 @@
 Usage:
     python green_x/evaluate.py --dataset <dataset_dir> [--out results.csv]
     python green_x/evaluate.py --dataset <dataset_dir> --no-green   # geometry only
+    python green_x/evaluate.py --dataset <dataset_dir> --single-scale
 
 Works with the original 4-column labels and with label format v2.
 
@@ -56,10 +57,11 @@ def altitude_bin(row, edges):
     return f"<{edges[0]:g} m" if altitude < edges[0] else f">={edges[-1]:g} m"
 
 
-def evaluate_image(image, row, verify_green, green_threshold, fixed_tolerance):
+def evaluate_image(image, row, verify_green, green_threshold, fixed_tolerance,
+                   multiscale=True):
     start = time.perf_counter()
     center, _, _ = detect(image, verify_green=verify_green,
-                          green_threshold=green_threshold)
+                          green_threshold=green_threshold, multiscale=multiscale)
     elapsed_ms = 1000 * (time.perf_counter() - start)
 
     present = row.get("target_present", "1") == "1"
@@ -154,7 +156,7 @@ def summarize(results, edges):
 
 def evaluate(dataset, output_path=None, verify_green=True,
              green_threshold=DEFAULT_GREEN_THRESHOLD, tolerance_px=None,
-             altitude_edges=(8, 15, 25, 40)):
+             altitude_edges=(8, 15, 25, 40), multiscale=True):
     dataset = Path(dataset)
     with (dataset / "labels.csv").open(newline="") as f:
         labels = list(csv.DictReader(f))
@@ -165,7 +167,8 @@ def evaluate(dataset, output_path=None, verify_green=True,
         if image is None:
             print(f"WARNING: Missing image {row['filename']}")
             continue
-        result = evaluate_image(image, row, verify_green, green_threshold, tolerance_px)
+        result = evaluate_image(image, row, verify_green, green_threshold,
+                                tolerance_px, multiscale)
         results.append(result)
         if result["outcome"] not in ("hit", "correct_reject"):
             detail = f" error={result['error_px']}px" if result["error_px"] != "" else ""
@@ -185,7 +188,8 @@ def evaluate(dataset, output_path=None, verify_green=True,
         writer.writeheader()
         writer.writerows(results)
 
-    print(f"\nGreen verification: {'on, threshold %.3f' % green_threshold if verify_green else 'off'}")
+    print(f"\nScales: {'multiscale' if multiscale else 'full resolution only'}")
+    print(f"Green verification: {'on, threshold %.3f' % green_threshold if verify_green else 'off'}")
     print("Tolerance: " + (f"{tolerance_px} px (fixed)" if tolerance_px is not None else
           f"{TOLERANCE_FRACTION:.0%} of board size, or {FALLBACK_TOLERANCE_PX:g} px without a box"))
     summarize(results, list(altitude_edges))
@@ -204,9 +208,12 @@ if __name__ == "__main__":
     parser.add_argument("--green-threshold", type=float, default=DEFAULT_GREEN_THRESHOLD)
     parser.add_argument("--tolerance-px", type=float, default=None,
                         help="Fixed hit tolerance in pixels (default: 10%% of board size)")
+    parser.add_argument("--single-scale", action="store_true",
+                        help="Full resolution only (detector behavior before multiscale)")
     parser.add_argument("--altitude-bins", default="8,15,25,40",
                         help="Comma-separated altitude bin edges in meters")
     args = parser.parse_args()
     evaluate(args.dataset, args.out, verify_green=not args.no_green,
              green_threshold=args.green_threshold, tolerance_px=args.tolerance_px,
-             altitude_edges=[float(v) for v in args.altitude_bins.split(",")])
+             altitude_edges=[float(v) for v in args.altitude_bins.split(",")],
+             multiscale=not args.single_scale)
